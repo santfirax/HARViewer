@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
 const HarFormatter: React.FC = () => {
   const [harInput, setHarInput] = useState<string>('');
   const [formattedOutput, setFormattedOutput] = useState<any[]>([]);
   const [error, setError] = useState<string>('');
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHarInput(e.target.value);
@@ -15,17 +16,50 @@ const HarFormatter: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result;
-        if (typeof content === 'string') {
-          setHarInput(content);
-          setError('');
-        }
-      };
-      reader.readAsText(file);
+      readFile(file);
     }
   };
+
+  const readFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result;
+      if (typeof content === 'string') {
+        setHarInput(content);
+        setError('');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      readFile(files[0]);
+    }
+  }, []);
+
   const formatJson = (jsonString: string): string => {
     try {
       const parsed = JSON.parse(jsonString);
@@ -34,6 +68,7 @@ const HarFormatter: React.FC = () => {
       return jsonString; // Return original string if parsing fails
     }
   };
+
   const formatHar = () => {
     try {
       const harData = JSON.parse(harInput);
@@ -66,13 +101,22 @@ const HarFormatter: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">HAR File Formatter</h1>
-      <div className="mb-4">
+      <div 
+        className={`mb-4 border-2 border-dashed p-4 ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <textarea
           className="w-full h-64 p-2 border rounded"
           value={harInput}
           onChange={handleInputChange}
-          placeholder="Paste your HAR content here..."
+          placeholder="Paste your HAR content here or drag and drop a HAR file..."
         />
+        <p className="text-center mt-2">
+          {isDragging ? 'Drop the file here' : 'Drag and drop a HAR file here or use the button below'}
+        </p>
       </div>
       <div className="mb-4">
         <input
@@ -93,7 +137,7 @@ const HarFormatter: React.FC = () => {
           <span className="block sm:inline">{error}</span>
         </div>
       )}
-     {formattedOutput.length > 0 && (
+      {formattedOutput.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold mb-2">Formatted Output:</h2>
           {formattedOutput.map((entry: any, index: number) => (
